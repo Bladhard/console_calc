@@ -1,5 +1,3 @@
-"""Точка входа приложения SmartCalc v2.0."""
-
 import sys
 from decimal import Decimal
 
