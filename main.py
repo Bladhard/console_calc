@@ -4,13 +4,12 @@ import sys
 from decimal import Decimal
 
 from calculator import CalculatorError, format_number
-from diagnostics import run_diagnostics
 from exporter import export_all, export_csv, export_json, export_txt
 from history import HistoryManager
 from logger import get_logger
 from memory import Memory
 from parser import ExpressionSyntaxError, evaluate
-from statistics import compute_statistics
+from statistics import compute_statistics, primary_operation
 from ui import (
     EXPORT_MENU_ITEMS,
     HISTORY_MENU_ITEMS,
@@ -25,12 +24,9 @@ from ui import (
     press_enter,
     print_error,
     read_yes_no,
-    show_diagnostics,
     show_export_result,
     show_goodbye,
-    show_history,
     show_result,
-    show_statistics,
     show_welcome,
     smart_menu,
 )
@@ -52,7 +48,7 @@ def action_expression(history, logger, last_result, expression):
     """
     expression = expression.strip()
     result = evaluate(expression, last_result)
-    record_success(history, logger, expression, result, "expression")
+    record_success(history, logger, expression, result, primary_operation(expression))
     show_result(expression, result)
     return expression, result
 
@@ -167,15 +163,6 @@ def action_export(history, logger):
     press_enter()
 
 
-def action_diagnostics(logger):
-    """Самодиагностика модулей."""
-    results = run_diagnostics()
-    show_diagnostics(results)
-    passed = sum(1 for _, ok in results if ok)
-    logger.info("Diagnostics: %d/%d passed", passed, len(results))
-    press_enter()
-
-
 def main():
     """Главный цикл приложения."""
     try:
@@ -234,8 +221,6 @@ def main():
                 action_search(history)
             elif choice == 5:
                 action_export(history, logger)
-            elif choice == 6:
-                action_diagnostics(logger)
         except EOFError:
             break
         except KeyboardInterrupt:

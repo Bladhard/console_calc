@@ -70,9 +70,32 @@ def _vt_supported():
         return False
 
 
+class _CRLFWriter:
+    """Переводит \n в \r\n при записи в консоль Windows.
+
+    В некоторых консолях (legacy-режим cmd) перевод строки без возврата
+    каретки не возвращает курсор в начало строки, и кадры меню
+    накладываются друг на друга со сдвигом.
+    """
+
+    def __init__(self, file):
+        self._file = file
+
+    def write(self, text):
+        self._file.write(text.replace("\r\n", "\n").replace("\n", "\r\n"))
+        return len(text)
+
+    def flush(self):
+        self._file.flush()
+
+    def __getattr__(self, name):
+        return getattr(self._file, name)
+
+
 _enable_vt()
 _USE_COLORS = _vt_supported()
-console = Console(color_system=None if not _USE_COLORS else "auto")
+_file = _CRLFWriter(sys.stdout) if os.name == "nt" and sys.stdout.isatty() else sys.stdout
+console = Console(file=_file, color_system=None if not _USE_COLORS else "auto")
 
 
 def _clear_screen():
@@ -117,9 +140,8 @@ def _clear_screen():
         csbi = ConsoleScreenBufferInfo()
         if not kernel32.GetConsoleScreenBufferInfo(handle, ctypes.byref(csbi)):
             return
-        width = csbi.srWindow.Right - csbi.srWindow.Left + 1
-        height = csbi.srWindow.Bottom - csbi.srWindow.Top + 1
-        origin = Coord(0, csbi.srWindow.Top)
+        width = csbi.dwSize.X
+        height = csbi.dwSize.Y
         written = ctypes.c_ulong(0)
         kernel32.FillConsoleOutputCharacterW.argtypes = [
             ctypes.c_void_p, ctypes.c_wchar, ctypes.c_uint, Coord,
@@ -127,9 +149,9 @@ def _clear_screen():
         ]
         kernel32.SetConsoleCursorPosition.argtypes = [ctypes.c_void_p, Coord]
         kernel32.FillConsoleOutputCharacterW(
-            handle, " ", width * height, origin, ctypes.byref(written)
+            handle, " ", width * height, Coord(0, 0), ctypes.byref(written)
         )
-        kernel32.SetConsoleCursorPosition(handle, origin)
+        kernel32.SetConsoleCursorPosition(handle, Coord(0, 0))
     except Exception:
         try:
             os.system("cls")
@@ -148,7 +170,6 @@ MAIN_MENU_ITEMS = [
     ("3", "Статистика"),
     ("4", "Поиск по истории"),
     ("5", "Экспорт"),
-    ("6", "Диагностика"),
     ("0", "Выход"),
 ]
 
@@ -355,7 +376,7 @@ def _menu_renderable(
     if expression_allowed:
         lines.append(
             "[dim]Введите выражение или выберите пункт ⇅ "
-            "и нажмите Enter[/dim]"
+            "меню и нажмите Enter[/dim]"
         )
     else:
         lines.append("[dim]Вверх/Вниз — выбрать пункт, Enter — подтвердить[/dim]")
