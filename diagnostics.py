@@ -9,7 +9,6 @@ from calculator import (
     add,
     divide,
     multiply,
-    square_root,
     subtract,
 )
 from exporter import export_txt
